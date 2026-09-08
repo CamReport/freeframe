@@ -280,6 +280,7 @@ export function ProgressBar({
   className,
 }: ProgressBarProps) {
   const trackRef = useRef<HTMLDivElement>(null)
+  const activePointerIdRef = useRef<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [hoverTime, setHoverTime] = useState<number | null>(null)
   const [hoverX, setHoverX] = useState(0)
@@ -307,8 +308,18 @@ export function ProgressBar({
     [duration],
   )
 
+  const endDrag = useCallback(() => {
+    activePointerIdRef.current = null
+    setIsDragging(false)
+    setHoverTime(null)
+    clearPreview()
+  }, [clearPreview])
+
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      // While dragging, only the pointer that started the drag may drive it —
+      // otherwise a second finger (e.g. a two-handed grip) would hijack the seek.
+      if (isDragging && e.pointerId !== activePointerIdRef.current) return
       const time = getTimeFromEvent(e.clientX)
       setHoverTime(time)
       const track = trackRef.current
@@ -333,35 +344,39 @@ export function ProgressBar({
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      e.preventDefault()
+      if (activePointerIdRef.current !== null) return // a drag is already in progress
+      activePointerIdRef.current = e.pointerId
+      // Pointer capture keeps this element receiving move/up/cancel for this
+      // pointer even once it's dragged outside the track's own bounds, so no
+      // window-level listeners are needed for drag-outside-track. Optional
+      // chaining: not implemented in jsdom, and harmless to skip anywhere it's
+      // genuinely absent — the pointerId filtering above still holds either way.
+      e.currentTarget.setPointerCapture?.(e.pointerId)
       setIsDragging(true)
       onSeek(getTimeFromEvent(e.clientX))
     },
     [getTimeFromEvent, onSeek],
   )
 
-  // Global pointer up / move to handle drag outside track
-  useEffect(() => {
-    if (!isDragging) return
-
-    const handleGlobalPointerMove = (e: PointerEvent) => {
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.pointerId !== activePointerIdRef.current) return
       onSeek(getTimeFromEvent(e.clientX))
-    }
+      endDrag()
+    },
+    [getTimeFromEvent, onSeek, endDrag],
+  )
 
-    const handleGlobalPointerUp = (e: PointerEvent) => {
-      setIsDragging(false)
-      setHoverTime(null)
-      clearPreview()
-      onSeek(getTimeFromEvent(e.clientX))
-    }
-
-    window.addEventListener('pointermove', handleGlobalPointerMove)
-    window.addEventListener('pointerup', handleGlobalPointerUp)
-    return () => {
-      window.removeEventListener('pointermove', handleGlobalPointerMove)
-      window.removeEventListener('pointerup', handleGlobalPointerUp)
-    }
-  }, [isDragging, getTimeFromEvent, onSeek, clearPreview])
+  const handlePointerCancel = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      // iOS fires this instead of pointerup when the system takes the gesture
+      // (a second finger starting a pinch, an edge swipe, a long-press callout).
+      // Must still end the drag, or every later pointer move on the page seeks.
+      if (e.pointerId !== activePointerIdRef.current) return
+      endDrag()
+    },
+    [endDrag],
+  )
 
   // Separate timecoded comments
   const pointMarkers = comments.filter(
@@ -376,55 +391,61 @@ export function ProgressBar({
 
   return (
     <div className={cn('relative flex flex-col w-full group/progress py-1', className)}>
-      {/* Track hit area — taller invisible touch target wrapping the thin
-          visual bar below, which keeps its original size/appearance. */}
+      {/* Track — handlers live here (as upstream), so the invisible hit-area
+          extension below can be a plain overflowing child: touches/clicks on it
+          bubble up to this element without adding to layout height. */}
       <div
         ref={trackRef}
-        className="relative w-full h-6 flex items-center cursor-pointer touch-none"
+        data-testid="progress-bar-track"
+        className="relative w-full h-1 group-hover/progress:h-1.5 transition-all duration-150 cursor-pointer touch-none bg-border rounded-full"
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
         onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
       >
-        {/* Visual track */}
-        <div className="relative w-full h-1 group-hover/progress:h-1.5 transition-all duration-150 bg-border rounded-full">
-          {/* Buffered range */}
-          <div
-            className="absolute inset-y-0 left-0 bg-border-secondary rounded-full"
-            style={{ width: `${bufferedPercent}%` }}
-          />
+        {/* Invisible hit-area extension — no handlers of its own. It overflows
+            above/below the thin visual track (out of flow, so it doesn't affect
+            layout height) purely to widen the touch/click target. */}
+        <div className="absolute -inset-y-2.5 inset-x-0" />
 
-          {/* Time-range comment spans */}
-          {rangeMarkers.map((c) => {
-            if (c.timecode_start === null || c.timecode_end === null) return null
-            const left = timeToPercent(c.timecode_start)
-            const right = timeToPercent(c.timecode_end)
-            return (
-              <div
-                key={c.id}
-                className="absolute inset-y-0 bg-yellow-400/40 rounded-full pointer-events-none"
-                style={{
-                  left: `${left}%`,
-                  width: `${right - left}%`,
-                }}
-              />
-            )
-          })}
+        {/* Buffered range */}
+        <div
+          className="absolute inset-y-0 left-0 bg-border-secondary rounded-full"
+          style={{ width: `${bufferedPercent}%` }}
+        />
 
-          {/* Playback progress */}
-          <div
-            className="absolute inset-y-0 left-0 rounded-full"
-            style={{
-              width: `${playPercent}%`,
-              background: 'linear-gradient(90deg, #6366f1, #818cf8)',
-            }}
-          />
+        {/* Time-range comment spans */}
+        {rangeMarkers.map((c) => {
+          if (c.timecode_start === null || c.timecode_end === null) return null
+          const left = timeToPercent(c.timecode_start)
+          const right = timeToPercent(c.timecode_end)
+          return (
+            <div
+              key={c.id}
+              className="absolute inset-y-0 bg-yellow-400/40 rounded-full pointer-events-none"
+              style={{
+                left: `${left}%`,
+                width: `${right - left}%`,
+              }}
+            />
+          )
+        })}
 
-          {/* Playhead thumb */}
-          <div
-            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-accent shadow-lg opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/progress:opacity-100 transition-opacity pointer-events-none z-10"
-            style={{ left: `${playPercent}%`, transform: 'translateX(-50%) translateY(-50%)' }}
-          />
-        </div>
+        {/* Playback progress */}
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{
+            width: `${playPercent}%`,
+            background: 'linear-gradient(90deg, #6366f1, #818cf8)',
+          }}
+        />
+
+        {/* Playhead thumb */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-accent shadow-lg opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/progress:opacity-100 transition-opacity pointer-events-none z-10"
+          style={{ left: `${playPercent}%`, transform: 'translateX(-50%) translateY(-50%)' }}
+        />
       </div>
 
       {/* Comment markers row — below the progress bar */}
