@@ -38,6 +38,10 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+function isCoarsePointer(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface FolderShareViewerProps {
@@ -171,7 +175,7 @@ function SubfolderCard({ subfolder, onClick }: SubfolderCardProps) {
 
   return (
     <button
-      className="group flex flex-col rounded-lg border border-border bg-bg-tertiary overflow-hidden text-left transition-all cursor-pointer hover:border-border-focus hover:bg-bg-hover"
+      className="group flex flex-col rounded-lg border border-border bg-bg-tertiary overflow-hidden text-left transition-all cursor-pointer [@media(hover:hover)]:hover:border-border-focus [@media(hover:hover)]:hover:bg-bg-hover"
       onClick={() => onClick(subfolder)}
     >
       {/* Thumbnail area */}
@@ -185,7 +189,7 @@ function SubfolderCard({ subfolder, onClick }: SubfolderCardProps) {
           <img
             src={thumbs[0]}
             alt={subfolder.name}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 [@media(hover:hover)]:group-hover:scale-[1.03]"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
         ) : (
@@ -263,10 +267,10 @@ function AssetGridCard({ asset, allowDownload, token, shareSession, isSelected, 
         'group flex flex-col rounded-lg border overflow-hidden transition-all cursor-pointer',
         isSelected
           ? 'border-accent/60 ring-1 ring-accent/40'
-          : 'border-border hover:border-border-focus',
-        'bg-bg-tertiary hover:bg-bg-hover',
+          : 'border-border [@media(hover:hover)]:hover:border-border-focus',
+        'bg-bg-tertiary [@media(hover:hover)]:hover:bg-bg-hover',
       )}
-      onClick={() => onSelect(asset)}
+      onClick={() => (isCoarsePointer() ? onOpen(asset) : onSelect(asset))}
       onDoubleClick={() => onOpen(asset)}
     >
       {/* Thumbnail */}
@@ -276,7 +280,7 @@ function AssetGridCard({ asset, allowDownload, token, shareSession, isSelected, 
           <img
             src={asset.thumbnail_url}
             alt={asset.name}
-            className={cn('h-full w-full transition-transform duration-200 group-hover:scale-[1.02]', thumbnailScale === 'fill' ? 'object-cover' : 'object-contain')}
+            className={cn('h-full w-full transition-transform duration-200 [@media(hover:hover)]:group-hover:scale-[1.02]', thumbnailScale === 'fill' ? 'object-cover' : 'object-contain')}
             onError={() => setImgError(true)}
           />
         ) : (
@@ -315,7 +319,7 @@ function AssetGridCard({ asset, allowDownload, token, shareSession, isSelected, 
         {/* Download button overlay */}
         {allowDownload && (
           <button
-            className="absolute top-2 right-2 flex items-center justify-center h-6 w-6 rounded-md bg-bg-primary/70 hover:bg-bg-primary/90 text-text-primary backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-2 right-2 flex items-center justify-center h-6 w-6 rounded-md bg-bg-primary/70 [@media(hover:hover)]:hover:bg-bg-primary/90 text-text-primary backdrop-blur-sm opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity"
             onClick={(e) => {
               e.stopPropagation()
               handleDownload(token, asset.id, shareSession)
@@ -1156,11 +1160,11 @@ export function FolderShareViewer({
                                 <div
                                   key={asset.id}
                                   className={cn(
-                                    'group flex items-center gap-4 py-2 px-1 cursor-pointer transition-colors hover:bg-bg-hover',
+                                    'group flex items-center gap-4 py-2 px-1 cursor-pointer transition-colors [@media(hover:hover)]:hover:bg-bg-hover',
                                     selectedAsset?.id === asset.id && 'bg-accent/5',
                                     i !== filteredAssets.length - 1 && 'border-b border-border',
                                   )}
-                                  onClick={() => setSelectedAsset(asset)}
+                                  onClick={() => (isCoarsePointer() && openInViewer ? setViewingAsset(asset) : setSelectedAsset(asset))}
                                   onDoubleClick={() => openInViewer && setViewingAsset(asset)}
                                 >
                                   {/* Square thumbnail */}
@@ -1184,7 +1188,7 @@ export function FolderShareViewer({
                                   {/* Download */}
                                   {allowDownload && (
                                     <button
-                                      className="w-7 shrink-0 flex items-center justify-center h-7 rounded text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-text-primary transition-all"
+                                      className="w-7 shrink-0 flex items-center justify-center h-7 rounded text-text-tertiary opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:hover:text-text-primary transition-all"
                                       onClick={(e) => { e.stopPropagation(); handleDownload(token, asset.id, shareSession) }}
                                       title="Download"
                                     >
