@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The video scrubber was unusable on a touchscreen** — the track only wired up mouse events, so a tap happened to seek once but there was no continuous drag, and the draggable target was the 4px visual track itself. Every handler is now Pointer Events (mouse, touch, and pen through one path), with the dragging pointer captured (`setPointerCapture`) so it keeps driving the seek outside the track's own bounds, ends cleanly on `pointercancel` (an iOS gesture taking over mid-drag) and `onLostPointerCapture` (capture lost with no matching release), and ignores a second pointer or non-primary button so a two-handed grip or a right-click can't hijack or permanently latch it. The touch target is widened with an invisible overlay — asymmetric (`-top-1`/`-bottom-3.5`), so it stays inside this component's own padding above (nothing here has room to spare into the video area rendered directly above it) while clearing into the transport bar's own button gutter below — and the comment-markers row is `pointer-events-none` (with each marker itself `pointer-events-auto`) so it no longer swallows most of that downward extension on an asset with an unresolved comment. The floating frame-preview/timecode tooltip is now clamped to the track's own width, since a captured drag can otherwise push it past the player's edge and over the comment panel. The playhead thumb, previously invisible until hover, is now always visible so there's something to see before you grab it. (#323 by @CamReport)
+
 ## [1.13.0] - 2026-09-09
 
 ### Upgrade notes
