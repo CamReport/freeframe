@@ -15,6 +15,10 @@ import { MoveToDialog } from './move-to-dialog'
 import { useViewStore } from '@/stores/view-store'
 import type { Asset, AssetStatus, User, Folder, FolderTreeNode } from '@/types'
 
+function isCoarsePointer(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+}
+
 const assetTypeIcons: Record<string, React.ElementType> = {
   video: Film,
   audio: Music,
@@ -347,7 +351,7 @@ export function AssetGrid({
                 'rounded-lg transition-all cursor-pointer',
                 selectedAssetId === asset.id && 'ring-2 ring-accent ring-offset-1 ring-offset-bg-primary',
               )}
-              onClick={(e) => onAssetSelect?.(asset, e)}
+              onClick={(e) => (isCoarsePointer() ? onAssetOpen?.(asset) : onAssetSelect?.(asset, e))}
               onDoubleClick={() => onAssetOpen?.(asset)}
             >
               <AssetCard
@@ -519,7 +523,7 @@ export function AssetGrid({
             return (
               <div
                 key={asset.id}
-                onClick={(e) => onAssetSelect?.(asset, e)}
+                onClick={(e) => (isCoarsePointer() ? onAssetOpen?.(asset) : onAssetSelect?.(asset, e))}
                 onDoubleClick={() => onAssetOpen?.(asset)}
                 className={cn(
                   'group flex items-center gap-4 px-3 py-2 transition-colors hover:bg-bg-hover cursor-pointer',
