@@ -33,6 +33,7 @@ import { Avatar } from "@/components/shared/avatar";
 import { AssetGrid } from "@/components/projects/asset-grid";
 import { CommentPanel } from "@/components/review/comment-panel";
 import { UploadZone } from "@/components/upload/upload-zone";
+import { useFileDropRegion } from "@/components/projects/use-file-drop-region";
 import { useUploadStore } from "@/stores/upload-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useViewStore } from "@/stores/view-store";
@@ -348,6 +349,52 @@ export default function ProjectDetailPage() {
     if (files.length > 0) setAssetName(files[0].name.replace(/\.[^/.]+$/, ""));
   };
 
+  // ─── Drop files onto the asset area ─────────────────────────────────────
+  //
+  // The drop target is the whole content region rather than the grid, so the
+  // empty state -- which is the case that says "Upload your first asset to get
+  // started" across an inert rectangle -- accepts a drop too, and so does the
+  // blank space below a short row of cards.
+  //
+  // Not the trash and not the share-link list: neither can receive an upload,
+  // and `canUpload` is owner/editor, so a reviewer never gets an affordance
+  // that ends in a 403. Whether a dialog is open is deliberately not part of
+  // it; see `useFileDropRegion` for why naming them one by one does not work.
+  const canDropFiles = canUpload && !showTrash && !showShareLinks;
+
+  const startDroppedUploads = React.useCallback(
+    (folderId: string | null, files: File[]) => {
+      files.forEach((file) =>
+        startUpload(
+          file,
+          projectId,
+          // Straight to startUpload rather than through the dialog. Dragging a
+          // file onto the project has already said everything the dialog asks:
+          // which file, which folder, and the name comes from the file. The
+          // single-file rename field is skipped, and renaming afterwards from
+          // the grid covers that.
+          file.name.replace(/\.[^/.]+$/, ""),
+          project?.name,
+          folderId,
+        ),
+      );
+    },
+    [startUpload, projectId, project?.name],
+  );
+
+  const {
+    regionRef: dropRegion,
+    regionProps,
+    showRegionFrame,
+    fileDragTarget: fileDragFolderId,
+    setFolderTarget,
+    onDropToFolder: handleDropFilesToFolder,
+  } = useFileDropRegion({
+    enabled: canDropFiles,
+    currentFolderId,
+    onUploadFiles: startDroppedUploads,
+  });
+
   const handleStartUpload = () => {
     pendingFiles.forEach((file) => {
       const name =
@@ -376,6 +423,9 @@ export default function ProjectDetailPage() {
   );
 
   return (
+    // No refusal handler here: it lives on the dashboard shell, which wraps
+    // this page along with the header, the rail and the attribution badge --
+    // all of which are outside this element and were still losing the tab.
     <div className="flex h-full flex-col lg:flex-row overflow-hidden">
       {/* ─── Left Sidebar (Frame.io style) ──────────────────────────────── */}
       <div className="hidden lg:flex w-72 flex-col border-r border-border bg-bg-secondary shrink-0">
@@ -426,6 +476,13 @@ export default function ProjectDetailPage() {
               mutateAssets();
               mutateSubfolders();
             }}
+            // `canUpload`, not `canDropFiles`. What the main pane is showing
+            // says nothing about the sidebar: a folder row means "upload into
+            // this folder" while the trash or the share-link list is open just
+            // as much as it does beside the grid. Only the permission applies.
+            onDropFiles={canUpload ? handleDropFilesToFolder : undefined}
+            onFileDragOverFolder={canUpload ? setFolderTarget : undefined}
+            fileDragTarget={fileDragFolderId}
             onDropItems={async (targetFolderId, assetIds, folderIds) => {
               await bulkMove(assetIds, folderIds, targetFolderId);
               mutateAssets();
@@ -591,6 +648,14 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* ─── Main Content ───────────────────────────────────────────────── */}
+      {/* The wrapper carries the drag handlers and the overlay. It does not
+          scroll, so `inset` on the overlay is the region someone can see rather
+          than the whole scroll height, and the border stays where the eye is. */}
+      <div
+        ref={dropRegion}
+        className="relative flex-1 flex min-w-0 h-full"
+        {...regionProps}
+      >
       <div
         className="flex-1 flex flex-col min-w-0 bg-bg-primary h-full overflow-y-auto"
         onClick={() => setSelectedAsset(null)}
@@ -725,6 +790,9 @@ export default function ProjectDetailPage() {
                 });
                 setShareDialogOpen(true);
               }}
+              onDropFilesToFolder={canDropFiles ? handleDropFilesToFolder : undefined}
+              onFileDragOverFolder={canDropFiles ? setFolderTarget : undefined}
+              fileDragTarget={fileDragFolderId}
               onDropToFolder={async (targetFolderId, assetIds, folderIds) => {
                 await bulkMove(assetIds, folderIds, targetFolderId);
                 mutateAssets();
@@ -914,6 +982,17 @@ export default function ProjectDetailPage() {
             </Dialog.Portal>
           </Dialog.Root>
         </div>
+      </div>
+      {showRegionFrame && (
+        // pointer-events-none is load-bearing: an overlay that takes the
+        // pointer swallows the dragleave and the drop underneath it, so the
+        // marking would stick and the drop would never arrive.
+        <div className="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-xl border-2 border-accent bg-accent/10">
+          <span className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-lg">
+            Drop to upload
+          </span>
+        </div>
+      )}
       </div>
 
       {/* ─── Right Panel (Comments + Fields tabs, or Share Link Settings) ─ */}
