@@ -16,6 +16,10 @@ describe('CompareScrubber', () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       left: 0, top: 0, right: 630, bottom: 8, width: 630, height: 8, x: 0, y: 0, toJSON() {},
     })
+    // jsdom doesn't implement this at all (it's undefined, which is why the
+    // component calls it with `?.`) — stub it so a dropped call is visible
+    // rather than silently passing.
+    Element.prototype.setPointerCapture = vi.fn()
   })
 
   afterEach(() => {
@@ -97,6 +101,22 @@ describe('CompareScrubber', () => {
 
     fireEvent.pointerDown(track, { pointerId: 2, clientX: 315, isPrimary: true, button: 0 })
     expect(onSeek).toHaveBeenLastCalledWith((315 / 630) * 63)
+  })
+
+  it('captures the pointer on pointerdown, so the drag survives the finger leaving the track', () => {
+    render(<CompareScrubber {...base} />)
+    const track = screen.getByTestId('compare-track')
+
+    fireEvent.pointerDown(track, { pointerId: 1, clientX: 63, isPrimary: true, button: 0 })
+
+    expect(track.setPointerCapture).toHaveBeenCalledWith(1)
+  })
+
+  it('marks the track touch-none, so a drag is not fought by the browser\'s own scroll gesture', () => {
+    render(<CompareScrubber {...base} />)
+    const track = screen.getByTestId('compare-track')
+
+    expect(track.className).toContain('touch-none')
   })
 
   it('positions markers at (tc + offset) / total and reports clicks per side', () => {
