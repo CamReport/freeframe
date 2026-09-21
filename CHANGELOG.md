@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **First tap on iOS only buffered, a second tap was needed to start playback** — `video.play()` can reject while the element is not ready yet (ManagedMediaSource), and the rejection was silently swallowed. `play()` is now retried once on the next `canplay` event, and `touch-action: manipulation` on the player removes the 300ms double-tap delay. The retry is disarmed on a source or version change, on unmount and on the player's own deliberate pauses (the play toggle, a comment timecode, the comment box), so it no longer starts playback nobody asked for on those paths. (#404 by @jeremy-pixelated)
+
 ## [1.14.1] - 2026-09-21
 
 ### Fixed
