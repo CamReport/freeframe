@@ -76,6 +76,21 @@ describe('the transport row below sm', () => {
     render(<VideoPlayer {...props} />)
     expect(screen.getByLabelText('Play').className).toContain('h-7')
   })
+
+  it('gives the fullscreen button the same 44px target when compact, and 28px when not', () => {
+    stubWidth(390)
+    const { unmount } = render(<VideoPlayer {...props} />)
+    const compactClasses = screen.getByLabelText('Enter fullscreen').className.split(/\s+/)
+    expect(compactClasses).toContain('h-11')
+    expect(compactClasses).toContain('w-11')
+    unmount()
+
+    stubWidth(1024)
+    render(<VideoPlayer {...props} />)
+    const wideClasses = screen.getByLabelText('Enter fullscreen').className.split(/\s+/)
+    expect(wideClasses).toContain('h-7')
+    expect(wideClasses).toContain('w-7')
+  })
 })
 
 describe('the stage on a touch screen', () => {

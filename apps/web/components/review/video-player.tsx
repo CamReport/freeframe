@@ -635,7 +635,7 @@ export function VideoPlayer({
           {/* Fullscreen */}
           <button
             onClick={handleFullscreen}
-            className="flex h-7 w-7 items-center justify-center rounded text-text-tertiary hover:text-text-primary hover:bg-bg-hover transition-colors"
+            className={cn("flex items-center justify-center rounded text-text-tertiary hover:text-text-primary hover:bg-bg-hover transition-colors", compact ? "h-11 w-11" : "h-7 w-7")}
             aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
           >
             {isFullscreen ? (
