@@ -1072,7 +1072,7 @@ export function FolderShareViewer({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search assets…"
-                  className="h-8 w-52 pl-8 pr-3 rounded-md text-sm border bg-bg-tertiary border-border text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-border-focus"
+                  className="h-8 w-52 pl-8 pr-3 rounded-md text-[16px] [@media(hover:hover)]:text-sm border bg-bg-tertiary border-border text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-border-focus"
                 />
               </div>
             </div>
