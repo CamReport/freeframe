@@ -148,6 +148,9 @@ export function VideoPlayer({
   // 44px touch target instead of 28px.
   const compact = !useMediaQuery(MEDIA_SM);
   const [overflowOpen, setOverflowOpen] = useState(false);
+  // The Quality row in the overflow menu expands in place to list the rungs;
+  // it starts collapsed each time the menu opens.
+  const [qualityListOpen, setQualityListOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement>(null);
   const timeFormatRef = useRef<HTMLDivElement>(null);
 
@@ -162,6 +165,10 @@ export function VideoPlayer({
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
+  }, [overflowOpen]);
+
+  useEffect(() => {
+    if (!overflowOpen) setQualityListOpen(false);
   }, [overflowOpen]);
 
   // Close time format dropdown on outside click
@@ -605,12 +612,45 @@ export function VideoPlayer({
                     {isMuted || volume === 0 ? 'Unmute' : 'Mute'}
                     {isMuted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                   </button>
+                  {/* Quality lives here below sm rather than as an inline
+                      <select>: the select is ~69px wide, which the compact row
+                      has no room for at 360px, and its text-xs would trip
+                      iOS Safari's zoom-on-focus. */}
+                  {qualityLevels.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => setQualityListOpen((v) => !v)}
+                        className="flex h-11 w-full items-center justify-between px-3 text-[13px] text-text-secondary hover:bg-bg-hover transition-colors"
+                        aria-expanded={qualityListOpen}
+                      >
+                        Quality
+                        <span className="flex items-center gap-1 text-text-tertiary">
+                          {currentQuality === -1
+                            ? "Auto"
+                            : qualityLevels.find((l) => l.index === currentQuality)?.label ?? "Auto"}
+                          <ChevronUp className={cn("h-3 w-3 transition-transform", !qualityListOpen && "rotate-180")} />
+                        </span>
+                      </button>
+                      {qualityListOpen &&
+                        [{ index: -1, label: "Auto" }, ...qualityLevels].map((level) => (
+                          <button
+                            key={level.index}
+                            onClick={() => { setQuality(level.index); setOverflowOpen(false); }}
+                            className="flex h-11 w-full items-center justify-between pl-6 pr-3 text-[13px] text-text-secondary hover:bg-bg-hover transition-colors"
+                            aria-label={`Quality ${level.label}`}
+                          >
+                            {level.label}
+                            {currentQuality === level.index && <Check className="h-4 w-4 text-accent" />}
+                          </button>
+                        ))}
+                    </>
+                  )}
                 </div>
               )}
             </div>
           )}
-          {/* Quality selector */}
-          {qualityLevels.length > 0 && (
+          {/* Quality selector (in the overflow menu when compact) */}
+          {!compact && qualityLevels.length > 0 && (
             <select
               value={currentQuality}
               onChange={(e) => setQuality(parseInt(e.target.value, 10))}
