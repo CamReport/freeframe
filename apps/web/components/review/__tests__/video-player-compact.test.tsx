@@ -124,8 +124,7 @@ describe('the quality selector', () => {
 
     fireEvent.click(screen.getByLabelText('More controls'))
     const row = screen.getByRole('button', { name: /^Quality/ })
-    expect(row.getAttribute('aria-expanded')).toBe('false')
-    // Collapsed until asked for, so the menu stays short.
+    // Closed until asked for, so the menu stays short.
     expect(screen.queryByLabelText('Quality 720p')).toBeNull()
 
     fireEvent.click(row)
@@ -137,6 +136,32 @@ describe('the quality selector', () => {
     expect(quality.set).toHaveBeenCalledWith(1)
     // Picking a rung closes the menu, like the other overflow rows.
     expect(screen.queryByLabelText('Quality 1080p')).toBeNull()
+  })
+
+  it('swaps the menu rows for the rung list instead of appending to it', () => {
+    // The menu opens upward from a transport row that sits only ~190-245px
+    // below the top of the player on a portrait phone. Four 44px rows fit
+    // there; appending the list to Loop, Speed, Mute and Quality made eight and
+    // ran the top of the menu under the page header, out of reach.
+    quality.levels = ladder
+    stubWidth(360)
+    render(<VideoPlayer {...props} />)
+
+    fireEvent.click(screen.getByLabelText('More controls'))
+    for (const name of [/^Loop/, /^Speed/, /^Mute/, /^Quality/]) {
+      expect(screen.queryByRole('button', { name })).not.toBeNull()
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: /^Quality/ }))
+    for (const name of [/^Loop/, /^Speed/, /^Mute/]) {
+      expect(screen.queryByRole('button', { name })).toBeNull()
+    }
+    // Auto plus each rung, and nothing else in the menu: this is also what
+    // shows the Quality row itself has gone, since its name and the Auto
+    // row's are both "Quality Auto".
+    const menu = screen.getByLabelText('Quality Auto').parentElement as HTMLElement
+    expect(Array.from(menu.querySelectorAll('button')).map((b) => b.getAttribute('aria-label')))
+      .toEqual(['Quality Auto', 'Quality 1080p', 'Quality 720p'])
   })
 
   it('stays an inline select above sm, with no overflow menu', () => {

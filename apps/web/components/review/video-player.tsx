@@ -9,6 +9,7 @@ import {
   Volume2,
   VolumeX,
   ChevronUp,
+  ChevronRight,
   Check,
   Repeat,
   MoreHorizontal,
@@ -148,8 +149,8 @@ export function VideoPlayer({
   // 44px touch target instead of 28px.
   const compact = !useMediaQuery(MEDIA_SM);
   const [overflowOpen, setOverflowOpen] = useState(false);
-  // The Quality row in the overflow menu expands in place to list the rungs;
-  // it starts collapsed each time the menu opens.
+  // The Quality row in the overflow menu swaps the menu's rows for the list of
+  // rungs; the menu starts on its own rows each time it opens.
   const [qualityListOpen, setQualityListOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement>(null);
   const timeFormatRef = useRef<HTMLDivElement>(null);
@@ -591,58 +592,64 @@ export function VideoPlayer({
               </button>
               {overflowOpen && (
                 <div className="absolute bottom-full right-0 mb-2 z-50 w-44 rounded-xl border border-border bg-bg-elevated shadow-2xl py-1.5">
-                  <button
-                    onClick={() => { setLoop((v) => !v); setOverflowOpen(false); }}
-                    className="flex h-11 w-full items-center justify-between px-3 text-[13px] text-text-secondary hover:bg-bg-hover transition-colors"
-                  >
-                    Loop
-                    {loop && <Check className="h-4 w-4 text-accent" />}
-                  </button>
-                  <button
-                    onClick={() => { handleSpeedCycle(); }}
-                    className="flex h-11 w-full items-center justify-between px-3 text-[13px] text-text-secondary hover:bg-bg-hover transition-colors"
-                  >
-                    Speed
-                    <span className="tabular-nums text-text-tertiary">{playbackRate}x</span>
-                  </button>
-                  <button
-                    onClick={() => { toggleMute(); setOverflowOpen(false); }}
-                    className="flex h-11 w-full items-center justify-between px-3 text-[13px] text-text-secondary hover:bg-bg-hover transition-colors"
-                  >
-                    {isMuted || volume === 0 ? 'Unmute' : 'Mute'}
-                    {isMuted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                  </button>
                   {/* Quality lives here below sm rather than as an inline
                       <select>: the select is ~69px wide, which the compact row
                       has no room for at 360px, and its text-xs would trip
-                      iOS Safari's zoom-on-focus. */}
-                  {qualityLevels.length > 0 && (
+                      iOS Safari's zoom-on-focus. Opening it replaces the rows
+                      rather than appending to them: the menu opens upward from
+                      a transport row that sits only ~190-245px below the top
+                      of the player on a portrait phone, and four rows (190px)
+                      is what fits there. Auto plus the ladder's at most three
+                      rungs is exactly four. */}
+                  {qualityListOpen ? (
+                    [{ index: -1, label: "Auto" }, ...qualityLevels].map((level) => (
+                      <button
+                        key={level.index}
+                        onClick={() => { setQuality(level.index); setOverflowOpen(false); }}
+                        className="flex h-11 w-full items-center justify-between px-3 text-[13px] text-text-secondary hover:bg-bg-hover transition-colors"
+                        aria-label={`Quality ${level.label}`}
+                      >
+                        {level.label}
+                        {currentQuality === level.index && <Check className="h-4 w-4 text-accent" />}
+                      </button>
+                    ))
+                  ) : (
                     <>
                       <button
-                        onClick={() => setQualityListOpen((v) => !v)}
+                        onClick={() => { setLoop((v) => !v); setOverflowOpen(false); }}
                         className="flex h-11 w-full items-center justify-between px-3 text-[13px] text-text-secondary hover:bg-bg-hover transition-colors"
-                        aria-expanded={qualityListOpen}
                       >
-                        Quality
-                        <span className="flex items-center gap-1 text-text-tertiary">
-                          {currentQuality === -1
-                            ? "Auto"
-                            : qualityLevels.find((l) => l.index === currentQuality)?.label ?? "Auto"}
-                          <ChevronUp className={cn("h-3 w-3 transition-transform", !qualityListOpen && "rotate-180")} />
-                        </span>
+                        Loop
+                        {loop && <Check className="h-4 w-4 text-accent" />}
                       </button>
-                      {qualityListOpen &&
-                        [{ index: -1, label: "Auto" }, ...qualityLevels].map((level) => (
-                          <button
-                            key={level.index}
-                            onClick={() => { setQuality(level.index); setOverflowOpen(false); }}
-                            className="flex h-11 w-full items-center justify-between pl-6 pr-3 text-[13px] text-text-secondary hover:bg-bg-hover transition-colors"
-                            aria-label={`Quality ${level.label}`}
-                          >
-                            {level.label}
-                            {currentQuality === level.index && <Check className="h-4 w-4 text-accent" />}
-                          </button>
-                        ))}
+                      <button
+                        onClick={() => { handleSpeedCycle(); }}
+                        className="flex h-11 w-full items-center justify-between px-3 text-[13px] text-text-secondary hover:bg-bg-hover transition-colors"
+                      >
+                        Speed
+                        <span className="tabular-nums text-text-tertiary">{playbackRate}x</span>
+                      </button>
+                      <button
+                        onClick={() => { toggleMute(); setOverflowOpen(false); }}
+                        className="flex h-11 w-full items-center justify-between px-3 text-[13px] text-text-secondary hover:bg-bg-hover transition-colors"
+                      >
+                        {isMuted || volume === 0 ? 'Unmute' : 'Mute'}
+                        {isMuted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                      </button>
+                      {qualityLevels.length > 0 && (
+                        <button
+                          onClick={() => setQualityListOpen(true)}
+                          className="flex h-11 w-full items-center justify-between px-3 text-[13px] text-text-secondary hover:bg-bg-hover transition-colors"
+                        >
+                          Quality
+                          <span className="flex items-center gap-1 text-text-tertiary">
+                            {currentQuality === -1
+                              ? "Auto"
+                              : qualityLevels.find((l) => l.index === currentQuality)?.label ?? "Auto"}
+                            <ChevronRight className="h-3 w-3" />
+                          </span>
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
