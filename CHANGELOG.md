@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Sub-path deployments.** `NEXT_PUBLIC_BASE_PATH` is now wired into `next.config.js`, so an instance can be mounted under a path (e.g. `https://example.com/freeframe/`) instead of the domain root. Pages, links, static assets, icons and copy-to-clipboard URLs all live under the prefix; the API stays at the origin root, and CORS matches the bare origin so a path-bearing `FRONTEND_URL` still works. Empty by default, so root deployments are unchanged. Build-time variable: rebuild the web image after changing it. (#281)
+
 ### Changed
 - **The API test tooling moves to pytest 9, and out of the runtime image** — pytest 8.4.2 was pinned in
   `apps/api/requirements.txt`, hits the CVE-2025-71176 advisory, and because the Dockerfile installs that
